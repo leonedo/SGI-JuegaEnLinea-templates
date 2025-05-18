@@ -16,7 +16,7 @@ let loopDelay = 0;
 let loopExternal = false;
 let loopRepeat;
 let loopDuration;
-let loopTiming;
+let loopTiming = 0;
 
 
 //update
@@ -210,7 +210,6 @@ webcg.on('data', function (data) {
                 anim.goToAndPlay('loop', true)
             }
 
-            let imageElements = animContainer.getElementsByTagName("image");
             animElementsLength = anim.renderer.elements.length;
             console.log(resolve)
 
@@ -222,30 +221,37 @@ webcg.on('data', function (data) {
                         data && data.hasOwnProperty(animElement.data.cl)
                     ) {
                         let cl = animElement.data.cl;
-                        let searchPath;
+                        
                         let newPath;
 
                         if (animElement.data.hasOwnProperty('refId') && animElement.data.refId.includes('image')) {
+                            // Get the new path to apply
                             newPath = data[cl] ? data[cl].text || data[cl] : '';
-                            anim.assets.forEach((item, index) => {
-                                if (item.id === animElement.data.refId) {
-                                    if (imagesReplace.hasOwnProperty(animElement.data.refId)) {
-                                        searchPath = imagesReplace[animElement.data.refId];
-                                    } else {
-                                        searchPath = `${anim.assets[index].u}${anim.assets[index].p}`;
-                                    }
-                                }
-                            })
-
-                            for (let i = 0; i < imageElements.length; i++) {
-                                const element = imageElements[i];
-                                if (~element.getAttribute("href").search(searchPath)) {
-                                    element.setAttribute("href", newPath);
-                                    imagesReplace[animElement.data.refId] = newPath
-                                }
-                            };
-
-
+                        
+                            // Optional: determine current searchPath for tracking
+                            let searchPath;
+                            const refId = animElement.data.refId;
+                        
+                            const asset = anim.assets.find(item => item.id === refId);
+                               if (asset) {
+                                searchPath = imagesReplace.hasOwnProperty(refId)
+                                    ? imagesReplace[refId]
+                                    : `${asset.u}${asset.p}`;
+                            }
+                        
+                            // Get the class name from animElement.data.cl or elsewhere
+                               const groupClass = cl; // assuming cl = "logovisitab4", etc.
+                               const group = document.querySelector(`g.${groupClass}`);
+                            const image = group ? group.querySelector('image') : null;
+                        
+                            if (image) {
+                                // Update the image href to the new path
+                                image.setAttribute('href', newPath); // preferred in modern SVG
+                              //  image.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', newPath); // for compatibility
+                        
+                                   // Store the new path in the imagesReplace cache
+                                imagesReplace[refId] = newPath;
+                            }
                         } else {
                             try {
                                 animElement.canResizeFont(true);
@@ -340,7 +346,7 @@ webcg.on('update', function () {
         loopTiming = 0
 
     } else if (isOn) {
-        loopTiming = loopDuration - Math.round(anim.currentFrame)
+        loopTiming = 0
 
     }
 });
