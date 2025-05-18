@@ -28,7 +28,7 @@ let imagesReplace = {};
 
 let animContainer = document.getElementById('bm');
 let loopContainer = document.getElementById('loop');
-
+let myData;
 
 const loadAnimation = (data, container) => {
     console.log('loading ' + data)
@@ -191,8 +191,8 @@ anim.addEventListener('config_ready', function (e) {
 const animPromise = makeAnimPromise()
 
 webcg.on('data', function (data) {
+    myData = data;
     let updateTiming = 0
-    console.log('data from casparcg received')
     animPromise.then(resolve => {
             if (anim.currentFrame !== 0 && updateAnimation) {
                 updateTiming = framesMilliseconds * (updateDelay + loopTiming)
@@ -296,6 +296,14 @@ anim.addEventListener('complete', () => {
     }
 })
 
+anim.addEventListener('enterFrame', function (e) {
+  const frame = e.currentTime;
+  if (frame >= 260 && frame < 261) {
+    console.log(`frame: ${frame}`)
+    doSomethingAtFrame260();
+  }
+});
+
 
 //casparcg control
 webcg.on('play', function () {
@@ -350,3 +358,85 @@ webcg.on('update', function () {
 
     }
 });
+
+function replaceB1B2WithB3B4(data) {
+  for (let key in data) {
+    if (key.endsWith('b1')) {
+      let newKey = key.replace('b1', 'b3');
+      if (data.hasOwnProperty(newKey)) {
+        data[key] = data[newKey];
+      }
+    } else if (key.endsWith('b2')) {
+      let newKey = key.replace('b2', 'b4');
+      if (data.hasOwnProperty(newKey)) {
+        data[key] = data[newKey];
+      }
+    }
+  }
+  return data;
+}
+
+function updateData(data){
+    data = replaceB1B2WithB3B4(data);
+    animElementsLength = anim.renderer.elements.length;
+            setTimeout(() => {
+                for (let i = 0; i < animElementsLength; i++) {
+                    var animElement = anim.renderer.elements[i];
+                    if (
+                        animElement.hasOwnProperty('data') && animElement.data.hasOwnProperty('cl') &&
+                        data && data.hasOwnProperty(animElement.data.cl)
+                    ) {
+                        let cl = animElement.data.cl;
+                        
+                        let newPath;
+
+                        if (animElement.data.hasOwnProperty('refId') && animElement.data.refId.includes('image')) {
+                            // Get the new path to apply
+                            newPath = data[cl] ? data[cl].text || data[cl] : '';
+                        
+                            // Optional: determine current searchPath for tracking
+                            let searchPath;
+                            const refId = animElement.data.refId;
+                        
+                            const asset = anim.assets.find(item => item.id === refId);
+                               if (asset) {
+                                searchPath = imagesReplace.hasOwnProperty(refId)
+                                    ? imagesReplace[refId]
+                                    : `${asset.u}${asset.p}`;
+                            }
+                        
+                            // Get the class name from animElement.data.cl or elsewhere
+                               const groupClass = cl; // assuming cl = "logovisitab4", etc.
+                               const group = document.querySelector(`g.${groupClass}`);
+                            const image = group ? group.querySelector('image') : null;
+                        
+                            if (image) {
+                                // Update the image href to the new path
+                                image.setAttribute('href', newPath); // preferred in modern SVG
+                              //  image.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', newPath); // for compatibility
+                        
+                                   // Store the new path in the imagesReplace cache
+                                imagesReplace[refId] = newPath;
+                            }
+                        } else {
+                            try {
+                                animElement.canResizeFont(true);
+                                animElement.updateDocumentData({
+                                    t: data[cl] ? data[cl].text || data[cl] : ''
+                                }, 0);
+
+                            } catch (err) {
+                                console.log(err)
+                            }
+                        };
+                    }
+                }
+
+            }, 10);
+}
+
+
+function doSomethingAtFrame260() {
+  console.log('Frame 260 reached!');
+  updateData(myData)
+}
